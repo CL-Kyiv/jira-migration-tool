@@ -1,0 +1,30 @@
+{
+  "name": "jmt",
+  "version": "1.0.0",
+  "description": "Jira migration tool",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CL-Kyiv/jira-migration-tool.git"
+  },
+  "keywords": [
+    "jira",
+    "import",
+    "export",
+    "nodejs",
+    "json"
+  ],
+  "author": "CL-Kyiv",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CL-Kyiv/jira-migration-tool/issues"
+  },
+  "homepage": "https://github.com/CL-Kyiv/jira-migration-tool",
+  "dependencies": {
+    "jira-connector": "^1.4.1",
+    "prompt": "^0.2.14"
+  }
+}
