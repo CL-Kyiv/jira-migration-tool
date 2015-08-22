@@ -24,7 +24,9 @@
   },
   "homepage": "https://github.com/CL-Kyiv/jira-migration-tool",
   "dependencies": {
+    "config": "^1.15.0",
     "jira-connector": "^1.4.1",
+    "lodash": "^3.10.1",
     "prompt": "^0.2.14"
   }
 }
