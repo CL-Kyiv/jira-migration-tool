@@ -2,5 +2,6 @@
   "db": {},
   "host": "test",
   "username": "test",
-  "exportFolder": "export"
+  "exportFolder": "export",
+  "importFolder": "import"
 }
