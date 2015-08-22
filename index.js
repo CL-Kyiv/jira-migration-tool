@@ -4,6 +4,7 @@ var config = require('config');
 var fs = require('fs');
 var path = require('path');
 var _ = require('lodash');
+var jsonExporter = require('./json-exporter');
 
 
 var host = config.get('host');
@@ -39,18 +40,10 @@ var checkError = function (err) {
     }
 };
 
-var uploadJson = function (file, data) {
-    data = JSON.stringify(data, null, 4);
-    var filePath = path.join(__dirname, exportFolder, file);
-    fs.writeFile(filePath, data, {flag: 'w+'}, function (err) {
-        checkError(err);
-    });
-};
-
 var projectsReqCallback = function (error, projects) {
     checkError(error);
     console.log('Available projects: \n\t' + _.pluck(projects, 'name').join('\n\t'));
-    uploadJson('projects.json', projects);
+    jsonExporter.write('projects.json', projects);
     var requestProjectIssue = function (project) {
         var projectIssuesReqCallback = function (error, response) {
             var issues = response.issues;
@@ -59,7 +52,7 @@ var projectsReqCallback = function (error, projects) {
             _.each(issues, function (issue) {
                 console.log('\t' + issue.key + ' / ' + issue.fields.summary);
             });
-            uploadJson('issues/' + project.name + '.json', issues);
+            jsonExporter.write('issues\\' + project.name + '.json', issues);
         };
         jira.search.search({
             jql: 'project = "' + project.name + '"'
