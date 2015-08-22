@@ -6,6 +6,7 @@ var Q = require('q');
 var ProjectClient = new require('./clients/project');
 var ComponentClient = new require('./clients/component');
 var IssueClient = new require('./clients/issue');
+var CommentClient = new require('./clients/comment');
 var jsonExporter = require('./utils/json-exporter');
 var JsonImporter = require('./utils/json-importer');
 
@@ -44,27 +45,40 @@ prompt.get(prompts, function (err, options) {
             password: options.password
         }
     });
+
     console.log('Authentication successful');
+
     var projectClient = new ProjectClient(jira);
     var issueClient = new IssueClient(jira);
     var componentClient = new ComponentClient(jira);
+    var commentClient = new CommentClient(jira);
+
+    var requestQueue = [];
+
     var projects = projectClient.getProjects();
+
     projects.then(function (projects) {
-        jsonExporter.exportTo('projects.json', projects);
-        var requestQuery = [];
         _.each(projects, function (project) {
-            var projIssues = issueClient.getIssues(project);
-            var projectIssuesPromise = projIssues.then(function (projIssues) {
+            var projIssues = issueClient.getIssues(project).then(function (projIssues) {
+                _.each(projIssues, function (issue) {
+                    var comments = commentClient.getComments(issue);
+                    requestQueue.push(comments);
+                    comments.then(function (comments) {
+                        if (comments.length) {
+                            jsonExporter.exportTo('comments\\' + project.name + '\\' + issue.key + '\\comments.json', comments);
+                        }
+                    })
+                });
                 jsonExporter.exportTo('issues\\' + project.name + '.json', projIssues);
             });
-            var projectComponents = componentClient.getComponents(project);
-            var projectComponentsPromise = projectComponents.then(function (projectComponents) {
+            var projectComponents = componentClient.getComponents(project).then(function (projectComponents) {
                 jsonExporter.exportTo('components\\' + project.name + '.json', projectComponents);
             });
-            requestQuery.push(projectIssuesPromise);
-            requestQuery.push(projectComponentsPromise);
+            requestQueue.push(projIssues);
+            requestQueue.push(projectComponents);
         });
-        return Q.all(requestQuery).then(function () {
+        jsonExporter.exportTo('projects.json', projects);
+        Q.all(requestQueue).then(function () {
             console.log('Job done.');
             var jsonImporter = new JsonImporter(exportFolder);
             jsonImporter.importProjects();

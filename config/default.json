@@ -1,6 +1,6 @@
 {
   "db": {},
-  "host": "test",
+  "host": "jira.test.com",
   "username": "test",
   "exportFolder": "export",
   "importFolder": "import"
