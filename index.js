@@ -1,15 +1,15 @@
 var JiraClient = require('jira-connector');
 var prompt = require('prompt');
 var config = require('config');
-var fs = require('fs');
-var path = require('path');
 var _ = require('lodash');
-var jsonExporter = require('./json-exporter');
-
+var ProjectClient = new require('./clients/project');
+var IssueClient = new require('./clients/issue');
+var jsonExporter = require('./utils/json-exporter');
 
 var host = config.get('host');
 var username = config.get('username');
 var exportFolder = config.get('exportFolder');
+
 var prompts = {
     properties: {
         host: {
@@ -23,7 +23,7 @@ var prompts = {
             required: true
         },
         password: {
-            type: 'string',
+            message: 'Password, input will be hidden',
             required: true,
             hidden: true
         }
@@ -32,48 +32,26 @@ var prompts = {
 
 prompt.start();
 
-//prompt.get(prompts, function (err, options) {
+prompt.get(prompts, function (err, options) {
 
-var checkError = function (err) {
-    if (err) {
-        throw new Error(err.message);
-    }
-};
-
-var projectsReqCallback = function (error, projects) {
-    checkError(error);
-    console.log('Available projects: \n\t' + _.pluck(projects, 'name').join('\n\t'));
-    jsonExporter.write('projects.json', projects);
-    var requestProjectIssue = function (project) {
-        var projectIssuesReqCallback = function (error, response) {
-            var issues = response.issues;
-            checkError(error);
-            console.log('Available issues for project : ' + project.name);
-            _.each(issues, function (issue) {
-                console.log('\t' + issue.key + ' / ' + issue.fields.summary);
-            });
-            jsonExporter.write('issues\\' + project.name + '.json', issues);
-        };
-        jira.search.search({
-            jql: 'project = "' + project.name + '"'
-        }, projectIssuesReqCallback);
-    };
-    _.each(projects, requestProjectIssue);
-};
-
-var jira = new JiraClient({
-    //host: options.host,
-    host: host,
-    basic_auth: {
-        //username: options.username,
-        username: username,
-        //password: options.password
-        password: 'test'
-    }
+    var jira = new JiraClient({
+        host: options.host,
+        basic_auth: {
+            username: options.username,
+            password: options.password
+        }
+    });
+    console.log('Authentication successful');
+    var projectClient = new ProjectClient(jira);
+    var issueClient = new IssueClient(jira);
+    var projects = projectClient.getProjects();
+    projects.then(function (projects) {
+        jsonExporter.exportTo('projects.json', projects);
+        _.each(projects, function (project) {
+            var projIssues = issueClient.getIssues(project);
+            projIssues.then(function (projIssues) {
+                jsonExporter.exportTo('issues\\' + project.name + '.json', projIssues);
+            })
+        })
+    });
 });
-
-console.log('Authentication successful');
-jira.project.getAllProjects(null, projectsReqCallback);
-
-
-

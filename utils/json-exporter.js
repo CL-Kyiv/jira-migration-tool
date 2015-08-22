@@ -5,7 +5,7 @@ var _ = require('lodash');
 
 var exportDir = config.get('exportFolder');
 module.exports = (function () {
-    var projRoot = _path.join(__dirname);
+    var projRoot = _path.join(__dirname, '..');
     var makeDir = function (path) {
         if (!path) return;
         path = path.split('\\');
@@ -20,9 +20,8 @@ module.exports = (function () {
         data = JSON.stringify(data, null, 4);
         fs.writeFileSync(path, data, {flag: 'w+'});
     };
-    var write = function (path, data, callback) {
+    var exportTo = function (path, data, callback) {
         try {
-
             var dirPath = path.split('\\');
             dirPath.pop();
             dirPath = dirPath.join('\\');
@@ -37,6 +36,6 @@ module.exports = (function () {
         }
     };
     return {
-        write: write
+        exportTo: exportTo
     }
 })();
