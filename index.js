@@ -1,8 +1,10 @@
 var JiraClient = require('jira-connector');
+var winston = require('winston');
 var prompt = require('prompt');
 var config = require('config');
 var _ = require('lodash');
 var Q = require('q');
+
 var ProjectClient = new require('./clients/project');
 var ComponentClient = new require('./clients/component');
 var IssueClient = new require('./clients/issue');
@@ -13,6 +15,10 @@ var JsonImporter = require('./utils/json-importer');
 var host = config.get('host');
 var username = config.get('username');
 var exportFolder = config.get('exportFolder');
+var importFolder = config.get('importFolder');
+
+winston.handleExceptions(new winston.transports.File({filename: 'error-log.txt'}));
+winston.add(winston.transports.File, {filename: 'log.txt', timestamp: true});
 
 var prompts = {
     properties: {
@@ -46,7 +52,7 @@ prompt.get(prompts, function (err, options) {
         }
     });
 
-    console.log('Authentication successful');
+    winston.info('Authentication successful');
 
     var projectClient = new ProjectClient(jira);
     var issueClient = new IssueClient(jira);
@@ -58,8 +64,12 @@ prompt.get(prompts, function (err, options) {
     var projects = projectClient.getProjects();
 
     projects.then(function (projects) {
+        winston.info('Loaded projects:', '\n', _.pluck(projects, 'name').join('\n\t'));
         _.each(projects, function (project) {
             var projIssues = issueClient.getIssues(project).then(function (projIssues) {
+                winston.info('Loaded issues for ' + project.name + ' project', '\n', _.map(projIssues, function (issue) {
+                    return issue.key + ' / ' + issue.fields.summary
+                }).join('\n\t'));
                 _.each(projIssues, function (issue) {
                     var comments = commentClient.getComments(issue);
                     requestQueue.push(comments);
@@ -79,10 +89,14 @@ prompt.get(prompts, function (err, options) {
         });
         jsonExporter.exportTo('projects.json', projects);
         Q.all(requestQueue).then(function () {
-            console.log('Job done.');
             var jsonImporter = new JsonImporter(exportFolder);
             jsonImporter.importProjects();
             jsonImporter.upload();
+            winston.info(
+                'Job done.', '\n',
+                'Exported files location: ' + __dirname + '\\' + exportFolder, '\n',
+                'Output file : ' + __dirname + '\\' + importFolder + '\\' + 'import.json');
         });
     });
-});
+})
+;
