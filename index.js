@@ -62,47 +62,58 @@ prompt.get(prompts, function (err, options) {
     var commentClient = new CommentClient(jira);
     var attachmentsClient = new AttachmentsClient(jira);
 
-    var requestQueue = [];
+    var globalRequestQueue = [];
 
     var projects = projectClient.getProjects();
 
     projects.then(function (projects) {
         winston.info('Loaded projects:', '\n', _.pluck(projects, 'name').join('\n\t'));
+
         _.each(projects, function (project) {
-            var issuesAttachmentsDeferred = Q.defer();
-            requestQueue.push(issuesAttachmentsDeferred.promise);
-            var projIssues = issueClient.getIssues(project).then(function (projIssues) {
-                var attachmentsRequestQueue = [];
+
+            var projectIssuesDataRequests = Q.defer();
+            globalRequestQueue.push(projectIssuesDataRequests.promise);
+
+            issueClient.getIssues(project).then(function (projIssues) {
+
+                var issuesDataRequestQueue = [];
                 winston.info('Loaded issues for ' + project.name + ' project', '\n', _.map(projIssues, function (issue) {
                     return issue.key + ' / ' + issue.fields.summary
                 }).join('\n\t'));
+
                 _.each(projIssues, function (issue) {
+
                     var attachments = attachmentsClient.uploadAttachments(issue);
-                    attachmentsRequestQueue.push(attachments);
+                    issuesDataRequestQueue.push(attachments);
                     attachments.then(function (size) {
                         winston.info(issue.key + '.zip ' + size + 'B  downloaded');
                     });
+
                     var comments = commentClient.getComments(issue);
-                    requestQueue.push(comments);
+                    globalRequestQueue.push(comments);
                     comments.then(function (comments) {
                         if (comments.length) {
                             jsonExporter.exportTo('comments\\' + project.name + '\\' + issue.key + '\\comments.json', comments);
                         }
                     })
+
                 });
-                Q.all(attachmentsRequestQueue).then(function () {
-                    issuesAttachmentsDeferred.resolve();
+
+                Q.all(issuesDataRequestQueue).then(function () {
+                    projectIssuesDataRequests.resolve();
                 });
                 jsonExporter.exportTo('issues\\' + project.name + '.json', projIssues);
             });
+
             var projectComponents = componentClient.getComponents(project).then(function (projectComponents) {
                 jsonExporter.exportTo('components\\' + project.name + '.json', projectComponents);
             });
-            requestQueue.push(projIssues);
-            requestQueue.push(projectComponents);
+            globalRequestQueue.push(projectComponents);
         });
+
         jsonExporter.exportTo('projects.json', projects);
-        Q.all(requestQueue).then(function () {
+
+        Q.all(globalRequestQueue).then(function () {
             var jsonImporter = new JsonImporter(exportFolder);
             jsonImporter.importProjects();
             jsonImporter.upload();
