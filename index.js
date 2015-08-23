@@ -4,11 +4,13 @@ var prompt = require('prompt');
 var config = require('config');
 var _ = require('lodash');
 var Q = require('q');
+var fs = require('fs');
 
 var ProjectClient = new require('./clients/project');
 var ComponentClient = new require('./clients/component');
 var IssueClient = new require('./clients/issue');
 var CommentClient = new require('./clients/comment');
+var AttachmentsClient = new require('./clients/attachments');
 var jsonExporter = require('./utils/json-exporter');
 var JsonImporter = require('./utils/json-importer');
 
@@ -58,6 +60,7 @@ prompt.get(prompts, function (err, options) {
     var issueClient = new IssueClient(jira);
     var componentClient = new ComponentClient(jira);
     var commentClient = new CommentClient(jira);
+    var attachmentsClient = new AttachmentsClient(jira);
 
     var requestQueue = [];
 
@@ -66,11 +69,19 @@ prompt.get(prompts, function (err, options) {
     projects.then(function (projects) {
         winston.info('Loaded projects:', '\n', _.pluck(projects, 'name').join('\n\t'));
         _.each(projects, function (project) {
+            var issuesAttachmentsDeferred = Q.defer();
+            requestQueue.push(issuesAttachmentsDeferred.promise);
             var projIssues = issueClient.getIssues(project).then(function (projIssues) {
+                var attachmentsRequestQueue = [];
                 winston.info('Loaded issues for ' + project.name + ' project', '\n', _.map(projIssues, function (issue) {
                     return issue.key + ' / ' + issue.fields.summary
                 }).join('\n\t'));
                 _.each(projIssues, function (issue) {
+                    var attachments = attachmentsClient.uploadAttachments(issue);
+                    attachmentsRequestQueue.push(attachments);
+                    attachments.then(function (size) {
+                        winston.info(issue.key + '.zip ' + size + 'B  downloaded');
+                    });
                     var comments = commentClient.getComments(issue);
                     requestQueue.push(comments);
                     comments.then(function (comments) {
@@ -78,6 +89,9 @@ prompt.get(prompts, function (err, options) {
                             jsonExporter.exportTo('comments\\' + project.name + '\\' + issue.key + '\\comments.json', comments);
                         }
                     })
+                });
+                Q.all(attachmentsRequestQueue).then(function () {
+                    issuesAttachmentsDeferred.resolve();
                 });
                 jsonExporter.exportTo('issues\\' + project.name + '.json', projIssues);
             });
@@ -98,5 +112,4 @@ prompt.get(prompts, function (err, options) {
                 'Output file : ' + __dirname + '\\' + importFolder + '\\' + 'import.json');
         });
     });
-})
-;
+});

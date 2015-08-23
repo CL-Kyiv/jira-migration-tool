@@ -6,7 +6,7 @@ config
 # Logs
 logs
 *.log
-
+error-log.txt
 # Runtime data
 pids
 *.pid
