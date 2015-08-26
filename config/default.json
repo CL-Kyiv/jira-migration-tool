@@ -3,5 +3,6 @@
   "host": "jira.test.com",
   "username": "test",
   "exportFolder": "export",
-  "importFolder": "import"
+  "importFolder": "import",
+  "exportPageSize": 1000
 }
