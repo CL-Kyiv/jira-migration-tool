@@ -81,7 +81,6 @@ prompt.get(prompts, function (err, options) {
         winston.info('Loaded projects:', _.pluck(projects, 'name').join('\n\t'));
 
         _.each(projects, function (project) {
-
             //var projectIssuesDataRequests = Q.defer();
             //globalRequestQueue.push(projectIssuesDataRequests.promise);
             winston.info(util.format('%s project download starting...', project.name));

@@ -6,7 +6,7 @@ var IssueClient = module.exports = function (jira) {
         var resultedIssues = [];
         var makeRequest = function (page) {
             return wrapPromise(jira.search, 'search', {
-                jql: 'project = "' + project.name + '"',
+                jql: 'project = "' + project.name + '" order by key ASC',
                 maxResults: pageSize,
                 startAt: pageSize * page,
                 expand: ['editmeta,renderedFields,transitions,changelog,operations']
