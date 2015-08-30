@@ -30,6 +30,7 @@
     "prompt": "^0.2.14",
     "q": "^1.4.1",
     "request": "^2.61.0",
+    "request-progress": "^0.3.1",
     "winston": "^1.0.1"
   }
 }

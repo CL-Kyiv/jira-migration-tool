@@ -5,6 +5,8 @@ var config = require('config');
 var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
+var http = require('http');
+var path = require('path');
 
 var ProjectClient = new require('./clients/project');
 var ComponentClient = new require('./clients/component');
@@ -52,6 +54,7 @@ prompt.start();
 
 prompt.get(prompts, function (err, options) {
 
+//var projectsList = ['Pat'];
     var projectsList = options.projects.split(',');
     var jira = new JiraClient({
         host: options.host,
@@ -81,13 +84,14 @@ prompt.get(prompts, function (err, options) {
         winston.info('Loaded projects:', _.pluck(projects, 'name').join('\n\t'));
 
         _.each(projects, function (project) {
-            //var projectIssuesDataRequests = Q.defer();
-            //globalRequestQueue.push(projectIssuesDataRequests.promise);
             winston.info(util.format('%s project download starting...', project.name));
+
             issueClient.getIssues(project, function (progress, complete, total) {
                 winston.info(util.format('Complete: (%d/%d) %d%%', complete, total, Math.ceil(progress * 100)));
             }).then(function (projIssues) {
+
                 var issues = projIssues.slice(0);
+
                 winston.info(util.format('%s project download complete successful...', project.name));
 
                 //var issuesDataRequestQueue = [];
@@ -134,14 +138,25 @@ prompt.get(prompts, function (err, options) {
                     })(index);
                     index++;
                 }
-                //winston.info(util.format('%s project json exporting to %s folder complete...', project.name, exportFolder));
-                //attachmentsClient.uploadAttachments(issues, function (fileName, index, total) {
-                //    winston.info(util.format('%s has been downloaded(%d/%d)', fileName, index, total));
-                //}).then(function () {
-                //    winston.info(util.format('%s project attachments download complete successful...', project.name));
-                //}, function () {
-                //    winston.info(util.format('Error during %s project attachments download...', project.name));
-                //});
+                winston.info(util.format('%s project json exporting to %s folder complete...', project.name, exportFolder));
+
+                attachmentsClient.uploadAttachments(issues).then(function () {
+                    //try {
+                    //
+                    //    _.each(issues, function (issue) {
+                    //        var comments = commentClient.getComments(issue);
+                    //        comments.then(function (comments) {
+                    //            if (comments.length) {
+                    //                jsonExporter.exportTo(path.join('comments', project.name, issue.key + ' .json'), comments);
+                    //            }
+                    //        })
+                    //    })
+                    //}
+                    //catch (e) {
+                    //    debugger
+                    //}
+                });
+
             }, function () {
                 winston.error(util.format('Error during download %s project issues', project.name));
             });
@@ -164,6 +179,6 @@ prompt.get(prompts, function (err, options) {
         //        'Output file : ' + __dirname + '\\' + importFolder + '\\' + 'import.json');
         //});
     }, function (err) {
-        console.log('error');
+        console.log('Error', err);
     });
 });
