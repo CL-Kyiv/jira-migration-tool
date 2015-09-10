@@ -25,7 +25,7 @@ var config = require('./jmt.json');
 var ProjectClientWrapper = new require('./clients/project');
 //var ComponentClient = new require('./clients/component');
 var IssueClientWrapper = new require('./clients/issue');
-var CommentClientWrapper = new require('./clients/comment');
+var CommentClient = new require('./clients/comment');
 var AttachmentsClient = new require('./clients/attachments');
 var jsonExporter = require('./utils/json-exporter');
 //var JsonImporter = require('./utils/json-importer');
@@ -95,7 +95,7 @@ prompt.get(prompts, function (err, options) {
     });
     var projectClient = new ProjectClientWrapper(jira);
     var issueClient = new IssueClientWrapper(jira);
-    var commentClient = new CommentClientWrapper(jira);
+    var commentClient = new CommentClient(jira);
 
 
     //winston.info('Authentication successful');
@@ -149,23 +149,20 @@ prompt.get(prompts, function (err, options) {
             //}).join('\n\t'));
 
 
-            _.each(projIssues.slice(0,3), function (issue) {
+            //_.each(projIssues, function (issue) {
 
                 //issuesDataRequestQueue.push(attachments);
                 //attachments.then(function (size) {
                 //    winston.info(issue.key + '.zip ' + size + 'B  downloaded');
                 //});
 
-                var comments = commentClient.getComments(issue);
                 //globalRequestQueue.push(comments);
-                comments.fail(requestErrorHandler);
-                comments.then(function (comments) {
-                    if (comments.length) {
-                        jsonExporter.exportTo(util.format('%s\\comments\\%s.comments.json', project.name, issue.key), comments);
-                    }
-                })
-
-            });
+                //comments.then(function (comments) {
+                //    if (comments.length) {
+                //        jsonExporter.exportTo(util.format('%s\\comments\\%s.comments.json', project.name, issue.key), comments);
+                //    }
+                //})
+            //});
 
             //Q.all(issuesDataRequestQueue).then(function () {
             //    projectIssuesDataRequests.resolve();
@@ -189,7 +186,9 @@ prompt.get(prompts, function (err, options) {
             }
             winston.info(util.format('%s project json exporting to %s folder complete...', project.name, exportFolder));
 
-            attachmentsClient.uploadAttachments(issues).then(function () {
+            var comments = commentClient.uploadComments(issues);
+            comments.fail(requestErrorHandler);
+            var attachments = attachmentsClient.uploadAttachments(issues).then(function () {
                 //try {
                 //
                 //    _.each(issues, function (issue) {
@@ -205,6 +204,7 @@ prompt.get(prompts, function (err, options) {
                 //    debugger
                 //}
             });
+            attachments.fail(requestErrorHandler);
 
         });
 
