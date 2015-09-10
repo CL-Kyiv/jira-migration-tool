@@ -11,9 +11,9 @@ var progress = require('request-progress');
 
 var AttachmentsClient = module.exports = function (jira) {
 
-    var createDir = function () {
-        if (!fs.existsSync(path.join(__dirname, '..', exportFolder, 'attachments'))) {
-            fs.mkdirSync(path.join(__dirname, '..', exportFolder, 'attachments'));
+    var createDir = function (project) {
+        if (!fs.existsSync(path.join(__dirname, '..', exportFolder, project, 'attachments'))) {
+            fs.mkdirSync(path.join(__dirname, '..', exportFolder, project, 'attachments'));
         }
     };
     var mapIssues = function (issues) {
@@ -138,7 +138,7 @@ var AttachmentsClient = module.exports = function (jira) {
 
     this.uploadAttachments = function (issues) {
         var project = issues[0].fields.project.name;
-        createDir();
+        createDir(project);
 
         issues = mapIssues(issues);
 
