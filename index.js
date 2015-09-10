@@ -15,6 +15,12 @@ d.on('error', function(err){
     console.log(err)
 })
 
+var configExist = fs.existsSync('jmt.json');
+if (!configExist) {
+    winston.info('Can not find configuration file, jmt.json created');
+    fs.writeFileSync('jmt.json', JSON.stringify(require('./default-config.json'), null, 4));
+}
+var config = require('./jmt.json');
 
 var ProjectClientWrapper = new require('./clients/project');
 //var ComponentClient = new require('./clients/component');
@@ -24,12 +30,6 @@ var AttachmentsClient = new require('./clients/attachments');
 var jsonExporter = require('./utils/json-exporter');
 //var JsonImporter = require('./utils/json-importer');
 
-var configExist = fs.existsSync('jmt.json');
-if (!configExist) {
-    winston.info('Can not find configuration file, jmt.json created');
-    fs.writeFileSync('jmt.json', JSON.stringify(require('./default-config.json'), null, 4));
-}
-var config = require('./jmt.json');
 
 //var host = config.host;
 //var username = config.get('username');
