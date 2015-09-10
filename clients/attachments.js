@@ -1,16 +1,13 @@
-var wrapPromise = require('./../utils/promise-wrapper');
 var request = require('request');
 var fs = require('fs');
-var http = require('http');
 var Q = require('q');
 var _ = require('lodash');
 var util = require('util');
-var config = require('config');
-var exportFolder = config.get('exportFolder');
+var config = require('./../jmt.json');
+var exportFolder = config.output;
 var path = require('path');
 var winston = require('winston');
 var progress = require('request-progress');
-var EventEmitter = require('events').EventEmitter;
 
 var AttachmentsClient = module.exports = function (jira) {
 
@@ -27,12 +24,13 @@ var AttachmentsClient = module.exports = function (jira) {
             }
         });
     };
-    var RequestQueue = function (issues, jira, maxSize) {
+    var RequestQueue = function (issues, jira, maxSize, project) {
         this._urls = issues;
         this.maxSize = maxSize || 100;
         this._storage = Object.create(null);
         this.jira = jira;
         this.errors = [];
+        this.project = project;
 
         this.total = issues.length;
         this.progress = 0;
@@ -71,7 +69,7 @@ var AttachmentsClient = module.exports = function (jira) {
     };
 
     RequestQueue.prototype.getFileName = function (issue) {
-        return path.join(__dirname, '..', exportFolder, 'attachments', issue.key + '.zip');
+        return path.join(__dirname, '..', exportFolder, this.project, 'attachments', issue.key + '.zip');
     };
 
     RequestQueue.prototype.enqueueRequest = function () {
@@ -139,12 +137,12 @@ var AttachmentsClient = module.exports = function (jira) {
     };
 
     this.uploadAttachments = function (issues) {
-
+        var project = issues[0].fields.project.name;
         createDir();
 
         issues = mapIssues(issues);
 
-        var queue = new RequestQueue(issues, jira, 40);
+        var queue = new RequestQueue(issues, jira, 40, project);
         queue.start(10);
 
         return queue.promise.then(function () {

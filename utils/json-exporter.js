@@ -1,9 +1,9 @@
 var fs = require('fs');
 var _path = require('path');
-var config = require('config');
+var config = require('./../jmt.json');
 var _ = require('lodash');
 
-var exportDir = config.get('exportFolder');
+var exportDir = config.output;
 module.exports = (function () {
     var projRoot = _path.join(__dirname, '..');
     var makeDir = function (path) {

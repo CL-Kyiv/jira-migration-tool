@@ -1,0 +1,10 @@
+{
+  "username": "",
+  "host": "",
+  "projects": "",
+  "password": "",
+  "output": "export",
+  "output_page_size": 1000,
+  "log_path": "",
+  "error_log_path":""
+}
