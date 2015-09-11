@@ -1,4 +1,3 @@
-var request = require('request');
 var wrapPromise = require('./../utils/promise-wrapper');
 var fs = require('fs');
 var Q = require('q');
@@ -8,7 +7,6 @@ var config = require('./../jmt.json');
 var exportFolder = config.output;
 var path = require('path');
 var winston = require('winston');
-var progress = require('request-progress');
 
 var CommentsClient = module.exports = function (jira) {
 
