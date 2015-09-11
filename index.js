@@ -2,18 +2,8 @@ var util = require('util');
 var JiraClient = require('jira-connector');
 var winston = require('winston');
 var prompt = require('prompt');
-//var config = require('config');
 var _ = require('lodash');
-//var Q = require('q');
 var fs = require('fs');
-//var http = require('http');
-//var path = require('path');
-
-var d = require('domain').create()
-d.on('error', function(err){
-    // handle the error safely
-    console.log(err)
-})
 
 var configExist = fs.existsSync('jmt.json');
 if (!configExist) {
@@ -23,7 +13,6 @@ if (!configExist) {
 var config = require('./jmt.json');
 
 var ProjectClientWrapper = new require('./clients/project');
-//var ComponentClient = new require('./clients/component');
 var IssueClientWrapper = new require('./clients/issue');
 var CommentClient = new require('./clients/comment');
 var AttachmentsClient = new require('./clients/attachments');
@@ -31,13 +20,6 @@ var jsonExporter = require('./utils/json-exporter');
 //var JsonImporter = require('./utils/json-importer');
 
 
-//var host = config.host;
-//var username = config.get('username');
-//var exportFolder = config.get('exportFolder');
-//var importFolder = config.get('importFolder');
-
-//winston.handleExceptions(new winston.transports.File({filename: 'error-log.txt'}));
-//winston.add(winston.transports.File, {filename: 'log.txt', timestamp: true});
 var requestErrorHandler = function (err) {
     winston.error('Error during request', util.inspect(err));
 };
@@ -46,12 +28,10 @@ var requiredProperties = ['host', 'username', 'password', 'projects'];
 var prompts = {
     properties: {
         host: {
-            //default: host,
             message: 'Host',
             required: true
         },
         username: {
-            //default: username,
             message: 'User name to login',
             required: true
         },
@@ -98,13 +78,7 @@ prompt.get(prompts, function (err, options) {
     var commentClient = new CommentClient(jira);
 
 
-    //winston.info('Authentication successful');
-
-    //var componentClient = new ComponentClient(jira);
     var attachmentsClient = new AttachmentsClient(jira);
-    //
-    //var globalRequestQueue = [];
-    //
     var projects = projectClient.getProjects().then(function (projects) {
         return _.filter(projects, function (project) {
             return _.contains(projectsToLoad, project.name);
@@ -114,20 +88,7 @@ prompt.get(prompts, function (err, options) {
     projects.fail(requestErrorHandler);
     projects.then(function (projects) {
         winston.info('Loaded projects:', _.pluck(projects, 'name').join('\n\t'));
-
         _.each(projects, projectExportFunc);
-
-        //jsonExporter.exportTo('projects.json', projects);
-
-        //Q.all(globalRequestQueue).then(function () {
-        //    var jsonImporter = new JsonImporter(exportFolder);
-        //    jsonImporter.importProjects();
-        //    jsonImporter.upload();
-        //    winston.info(
-        //        'Job done.', '\n',
-        //        'Exported files location: ' + __dirname + '\\' + exportFolder, '\n',
-        //        'Output file : ' + __dirname + '\\' + importFolder + '\\' + 'import.json');
-        //});
     });
 
     var projectExportFunc = function (project) {
@@ -143,30 +104,6 @@ prompt.get(prompts, function (err, options) {
 
             winston.info(util.format('%s project download complete successful...', project.name));
 
-            //var issuesDataRequestQueue = [];
-            //winston.info('Loaded issues for ' + project.name + ' project', '\n', _.map(projIssues, function (issue) {
-            //    return issue.key + ' / ' + issue.fields.summary
-            //}).join('\n\t'));
-
-
-            //_.each(projIssues, function (issue) {
-
-                //issuesDataRequestQueue.push(attachments);
-                //attachments.then(function (size) {
-                //    winston.info(issue.key + '.zip ' + size + 'B  downloaded');
-                //});
-
-                //globalRequestQueue.push(comments);
-                //comments.then(function (comments) {
-                //    if (comments.length) {
-                //        jsonExporter.exportTo(util.format('%s\\comments\\%s.comments.json', project.name, issue.key), comments);
-                //    }
-                //})
-            //});
-
-            //Q.all(issuesDataRequestQueue).then(function () {
-            //    projectIssuesDataRequests.resolve();
-            //});
             winston.info(util.format('%s project json exporting to %s folder starting...', project.name, exportFolder));
             var index = 0;
             var total = projIssues.length;
@@ -188,29 +125,9 @@ prompt.get(prompts, function (err, options) {
 
             var comments = commentClient.uploadComments(issues);
             comments.fail(requestErrorHandler);
-            var attachments = attachmentsClient.uploadAttachments(issues).then(function () {
-                //try {
-                //
-                //    _.each(issues, function (issue) {
-                //        var comments = commentClient.getComments(issue);
-                //        comments.then(function (comments) {
-                //            if (comments.length) {
-                //                jsonExporter.exportTo(path.join('comments', project.name, issue.key + ' .json'), comments);
-                //            }
-                //        })
-                //    })
-                //}
-                //catch (e) {
-                //    debugger
-                //}
-            });
+            var attachments = attachmentsClient.uploadAttachments(issues);
             attachments.fail(requestErrorHandler);
 
         });
-
-        //var projectComponents = componentClient.getComponents(project).then(function (projectComponents) {
-        //    jsonExporter.exportTo('components\\' + project.name + '.json', projectComponents);
-        //});
-        //globalRequestQueue.push(projectComponents);
     }
 });

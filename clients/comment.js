@@ -65,10 +65,6 @@ var CommentsClient = module.exports = function (jira) {
         return _.keys(this._storage).length < this.maxSize;
     };
 
-    //RequestQueue.prototype.getUrl = function (issue) {
-    //    return 'https://' + this.jira.host + '/secure/attachmentzip/' + issue.id + '.zip'
-    //};
-
     RequestQueue.prototype.getFileName = function (issueKey) {
         return path.join(__dirname, '..', exportFolder, this.project, 'comments', issueKey + '.comments.json');
     };
@@ -76,7 +72,6 @@ var CommentsClient = module.exports = function (jira) {
     RequestQueue.prototype.enqueueRequest = function () {
         var that = this;
         var issue = this._issues.pop();
-        //var url = this.getUrl(issue);
 
         var makeRequest = function (issueKey, jira) {
             var deferred = Q.defer();
@@ -108,35 +103,6 @@ var CommentsClient = module.exports = function (jira) {
                 that.errors.push(err);
                 deferred.reject(err);
             });
-            //var requestHandler = function (err, response, body) {
-            //    if (err) {
-            //        that.errors.push(err);
-            //        deferred.reject(err);
-            //    }
-            //    if (parseInt(response.headers['content-length']) == 22) {
-            //        fs.unlinkSync(file);
-            //    }
-            //    winston.info(util.format('%s has been downloaded(%d/%d)', file, ++that.progress, that.total));
-            //};
-            //progress(
-            //    request({
-            //        jar: false,
-            //        auth: jira.basic_auth,
-            //        method: 'GET',
-            //        uri: url
-            //    }, requestHandler),
-            //    {
-            //        throttle: 3000
-            //    })
-            //    .on('progress', function (state) {
-            //        // The properties bellow can be null if response does not contain
-            //        // the content-length header
-            //        winston.info(util.format('%s(%d%%)', file, state.percent));
-            //    })
-            //    .on('error', function (err) {
-            //        console.log(err);
-            //    }).pipe(fileStream);
-
             return deferred.promise;
         };
 
@@ -168,10 +134,6 @@ var CommentsClient = module.exports = function (jira) {
         var queue = new RequestQueue(issues, jira, 40, project);
         queue.start(10);
 
-        return queue.promise.then(function () {
-            //winston.info('Attachments loading complete. Errors: ', util.inspect(queue.errors));
-        }, function (err) {
-            //winston.error('Critical error during request: Error: ', util.inspect(err));
-        })
+        return queue.promise;
     }
 };

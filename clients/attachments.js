@@ -106,8 +106,6 @@ var AttachmentsClient = module.exports = function (jira) {
                     throttle: 3000
                 })
                 .on('progress', function (state) {
-                    // The properties bellow can be null if response does not contain
-                    // the content-length header
                     winston.info(util.format('%s(%d%%)', file, state.percent));
                 })
                 .on('error', function (err) {
@@ -145,10 +143,6 @@ var AttachmentsClient = module.exports = function (jira) {
         var queue = new RequestQueue(issues, jira, 40, project);
         queue.start(10);
 
-        return queue.promise.then(function () {
-            //winston.info('Attachments loading complete. Errors: ', util.inspect(queue.errors));
-        }, function (err) {
-            //winston.error('Critical error during request: Error: ', util.inspect(err));
-        })
+        return queue.promise;
     }
 };
