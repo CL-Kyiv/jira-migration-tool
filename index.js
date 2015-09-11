@@ -17,7 +17,7 @@ var IssueClientWrapper = new require('./clients/issue');
 var CommentClient = new require('./clients/comment');
 var AttachmentsClient = new require('./clients/attachments');
 var jsonExporter = require('./utils/json-exporter');
-//var JsonImporter = require('./utils/json-importer');
+var JsonImporter = require('./utils/json-importer');
 
 
 var requestErrorHandler = function (err) {
@@ -127,7 +127,11 @@ prompt.get(prompts, function (err, options) {
             comments.fail(requestErrorHandler);
             var attachments = attachmentsClient.uploadAttachments(issues);
             attachments.fail(requestErrorHandler);
-
+            Q.all([attachments, comments]).then(function () {
+                var importer = new JsonImporter();
+                importer.importProject(project);
+                winston.info('Export job done.')
+            });
         });
     }
 });
