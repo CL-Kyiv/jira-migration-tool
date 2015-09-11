@@ -77,29 +77,32 @@ JsonImporter.prototype.importProject = function (project) {
             };
         };
 
-        var projectIssuesMapFn = function (issue) {
 
-            //var issueCommentsMapFn = function (comment) {
-            //    return {
-            //        body: comment.body,
-            //        author: comment.author && comment.author.name,
-            //        created: comment.created
-            //    }
-            //};
-
-            return {
-                key: issue.key,
-                status: issue.fields.status && issue.fields.status.name,
-                reporter: issue.fields.reporter && issue.fields.reporter.name,
-                summary: issue.fields.summary,
-                priority: issue.fields.priority && issue.fields.priority.name,
-                externalId: issue.id
-                //comments: comments[project.name][issue.key] && _.map(comments[project.name][issue.key], issueCommentsMapFn)
-            }
-        };
 
         return Q.all([comments, issues]).then(function (data) {
+            var projectIssuesMapFn = function (issue) {
+
+                var issueCommentsMapFn = function (comment) {
+                    return {
+                        body: comment.body,
+                        author: comment.author && comment.author.name,
+                        created: comment.created
+                    }
+                };
+                var issueComments = _.findWhere(comments, {issueKey: issue.key});
+                issueComments = issueComments && issueComments.comments || [];
+                return {
+                    key: issue.key,
+                    status: issue.fields.status && issue.fields.status.name,
+                    reporter: issue.fields.reporter && issue.fields.reporter.name,
+                    summary: issue.fields.summary,
+                    priority: issue.fields.priority && issue.fields.priority.name,
+                    externalId: issue.id,
+                    comments: _.map(issueComments, issueCommentsMapFn)
+                }
+            };
             var issues = data[1];
+            var comments = data[0];
             return {
                 name: project.name,
                 key: project.key,
