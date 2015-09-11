@@ -4,6 +4,7 @@ var winston = require('winston');
 var prompt = require('prompt');
 var _ = require('lodash');
 var fs = require('fs');
+var path = require('path');
 
 var configExist = fs.existsSync('jmt.json');
 if (!configExist) {
@@ -131,6 +132,8 @@ prompt.get(prompts, function (err, options) {
                 return importProject(project);
             }).then(function () {
                 winston.info('Export job done.')
+                var attachmentUploader = new require('./clients/issue-attachment-uploader')();
+                attachmentUploader.uploadAttachments(path.join(__dirname, exportFolder, project.name, 'attachments'));
             });
         });
     }
