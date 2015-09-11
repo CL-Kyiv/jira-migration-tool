@@ -1,22 +1,13 @@
 var path = require('path');
-var config = require('./../jmt.json');
 var Q = require('q');
 var wrapPromise = require('./promise-wrapper');
 var _ = require('lodash');
+var winston = require('winston');
 var fs = require('fs');
-var exportFolder = config.output;
-var JsonImporter = function (sourcePath) {
-    this.sourcePath = sourcePath;
-    this.data = {
-        users: [],
-        links: [],
-        projects: []
-    }
-};
 
-JsonImporter.prototype.importProject = function (project) {
-    var that = this;
-    var comments = Object.create(null);
+var importFn = function (project) {
+    var exportFolder = require('./../jmt.json').output;
+
     var readIssues = function () {
         var files = wrapPromise(fs, 'readdir', path.join(__dirname, '..', exportFolder, project.name, 'issues'));
         return files.then(function (files) {
@@ -35,6 +26,7 @@ JsonImporter.prototype.importProject = function (project) {
             });
         });
     };
+
     var readComments = function () {
         var files = wrapPromise(fs, 'readdir', path.join(__dirname, '..', exportFolder, project.name, 'comments'));
         return files.then(function (files) {
@@ -48,26 +40,16 @@ JsonImporter.prototype.importProject = function (project) {
             });
 
             return Q.all(commentsData).then(function (data) {
-
                 return data;
             }, function (err) {
-
+                debugger;
             });
         });
     };
-    var issues = readIssues();
 
+    var issues = readIssues();
     var comments = readComments();
-    //var projects = require(path.join('..', this.sourcePath, 'projects.json'));
-    //_.each(projects, function (project) {
-    //issues = require(path.join('..', that.sourcePath, 'issues', project.name + '.json'));
-    //comments[project.name] = Object.create(null);
-    //_.each(issues[project.name], function (issue) {
-    //    if (fs.existsSync(path.join(__dirname, '..', that.sourcePath, 'comments', project.name, issue.key))) {
-    //        comments[project.name][issue.key] = require(path.join('..', that.sourcePath, 'comments', project.name, issue.key, 'comments.json'));
-    //    }
-    //});
-    //});
+
     var buildProject = function (project) {
 
         var projectVersionsMapFn = function (version) {
@@ -77,11 +59,8 @@ JsonImporter.prototype.importProject = function (project) {
             };
         };
 
-
-
         return Q.all([comments, issues]).then(function (data) {
             var projectIssuesMapFn = function (issue) {
-
                 var issueCommentsMapFn = function (comment) {
                     return {
                         body: comment.body,
@@ -89,8 +68,10 @@ JsonImporter.prototype.importProject = function (project) {
                         created: comment.created
                     }
                 };
+
                 var issueComments = _.findWhere(comments, {issueKey: issue.key});
                 issueComments = issueComments && issueComments.comments || [];
+
                 return {
                     key: issue.key,
                     status: issue.fields.status && issue.fields.status.name,
@@ -101,8 +82,10 @@ JsonImporter.prototype.importProject = function (project) {
                     comments: _.map(issueComments, issueCommentsMapFn)
                 }
             };
+
             var issues = data[1];
             var comments = data[0];
+
             return {
                 name: project.name,
                 key: project.key,
@@ -111,24 +94,16 @@ JsonImporter.prototype.importProject = function (project) {
                 issues: _.map(issues, projectIssuesMapFn)
             };
         });
-
     };
-    buildProject(project).then(function(data) {
+
+    var projectImportData = buildProject(project);
+    return projectImportData.then(function (data) {
         var outFile = path.join(__dirname, '..', exportFolder, project.name, 'output.json');
-        if(fs.existsSync(outFile)){
+        if (fs.existsSync(outFile)) {
             fs.unlinkSync(outFile)
         }
         fs.writeFileSync(outFile, JSON.stringify(data, null, 4));
     });
-    //this.data.projects = buildProject(project);
 };
 
-//JsonImporter.prototype.upload = function () {
-//    var importPath = path.join(__dirname, '..', importFolder);
-//    var data = JSON.stringify(this.data, null, 4);
-//    if (!fs.existsSync(importPath)) {
-//        fs.mkdirSync(importPath);
-//    }
-//    fs.writeFileSync(path.join(importPath, 'import.json'), data, {flag: 'w+'});
-//};
-module.exports = JsonImporter;
+module.exports = importFn;
