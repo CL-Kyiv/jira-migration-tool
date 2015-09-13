@@ -5,6 +5,11 @@ var prompt = require('prompt');
 var _ = require('lodash');
 var fs = require('fs');
 var path = require('path');
+var Q = require('q');
+var request = require('request');
+var Queue = require('./clients/generic-job-queue');
+var progress = require('request-progress');
+
 
 var configExist = fs.existsSync('jmt.json');
 if (!configExist) {
@@ -15,8 +20,6 @@ var config = require('./jmt.json');
 
 var ProjectClientWrapper = new require('./clients/project');
 var IssueClientWrapper = new require('./clients/issue');
-var CommentClient = new require('./clients/comment');
-var AttachmentsClient = new require('./clients/attachments');
 var jsonExporter = require('./utils/json-exporter');
 var importProject = require('./utils/json-importer');
 
@@ -76,10 +79,10 @@ prompt.get(prompts, function (err, options) {
     });
     var projectClient = new ProjectClientWrapper(jira);
     var issueClient = new IssueClientWrapper(jira);
-    var commentClient = new CommentClient(jira);
-
-
-    var attachmentsClient = new AttachmentsClient(jira);
+    var exportDir = path.join(__dirname, exportFolder);
+    if(!fs.existsSync(exportDir)) {
+        fs.mkdirSync(exportDir);
+    }
     var projects = projectClient.getProjects().then(function (projects) {
         return _.filter(projects, function (project) {
             return _.contains(projectsToLoad, project.name);
@@ -93,6 +96,10 @@ prompt.get(prompts, function (err, options) {
     });
 
     var projectExportFunc = function (project) {
+        var projectDir = path.join(__dirname, exportFolder, project.name);
+        if(!fs.existsSync(projectDir)) {
+            fs.mkdirSync(projectDir)
+        }
         winston.info(util.format('%s project download starting...', project.name));
         var issueLoadingProgressCallback = function (progress, complete, total) {
             winston.info(util.format('Complete: (%d/%d) %d%%', complete, total, Math.ceil(progress * 100)));
@@ -100,7 +107,11 @@ prompt.get(prompts, function (err, options) {
         var projIssues = issueClient.getIssues(project, issueLoadingProgressCallback);
         projIssues.fail(requestErrorHandler);
         projIssues.then(function (projIssues) {
-
+            projIssues = projIssues.slice(0, 400);
+            var issuesDir = path.join(projectDir, 'issues');
+            if(!fs.existsSync(issuesDir)) {
+                fs.mkdirSync(issuesDir);
+            }
             var issues = projIssues.slice(0);
 
             winston.info(util.format('%s project download complete successful...', project.name));
@@ -123,17 +134,85 @@ prompt.get(prompts, function (err, options) {
                 index++;
             }
             winston.info(util.format('%s project json exporting to %s folder complete...', project.name, exportFolder));
+            var wrapPromise = require('./utils/promise-wrapper');
+            var issueKeys = _.pluck(issues, 'key');
+            var commentsDir = path.join(projectDir, 'comments');
+            if(!fs.existsSync(commentsDir)) {
+                fs.mkdirSync(commentsDir);
+            }
+            var getComments = function (issueKey) {
+                return wrapPromise(jira.issue, 'getComments', {
+                    issueKey: issueKey
+                }).then(function (response) {
+                    if(response.comments.length) {
+                        fs.writeFileSync(path.join(commentsDir, issueKey + '.comments.json'), JSON.stringify(response.comments, null, 4), {flag: 'w+'});
+                    }
+                    winston.info(util.format('%s comments progress : %s/%s',issueKey, commentsQueue.progress, commentsQueue.total));
+                    return response.comments;
+                }, requestErrorHandler);
+            };
+            var commentsQueue = new Queue(issueKeys, 50, getComments);
+            var comments = commentsQueue.start(20);
+            var attachmentsDir = path.join(projectDir, 'attachments');
+            if(!fs.existsSync(attachmentsDir)) {
+                fs.mkdirSync(attachmentsDir);
+            }
+            var attachmentsData = _.map(issues, function (issue) {
+                return {
+                    key: issue.key,
+                    id: issue.id,
+                    url: 'https://' + host + '/secure/attachmentzip/' + issue.id + '.zip',
+                    file: path.join(__dirname, exportFolder, project.name, 'attachments', issue.key + '.zip')
+                };
+            });
+            var getAttachments = function (attachmentData) {
+                var deferred = Q.defer();
+                var file = attachmentData.file;
+                var url = attachmentData.url;
+                var fileStream = fs.createWriteStream(file);
+                fileStream.on('finish', function () {
+                    fileStream.close();
+                    deferred.resolve(file);
+                });
+                var requestHandler = function (err, response, body) {
+                    if (err) {
+                        deferred.reject(err);
+                        return;
+                    }
+                    if (parseInt(response.headers['content-length']) == 22) {
+                        fs.unlinkSync(file);
+                    }
+                    winston.info(util.format('%s has been downloaded(%d/%d)', file, attachmentQueue.progress, attachmentQueue.total));
+                };
+                progress(
+                    request({
+                        jar: false,
+                        auth: jira.basic_auth,
+                        method: 'GET',
+                        uri: url
+                    }, requestHandler),
+                    {
+                        throttle: 3000
+                    })
+                    .on('progress', function (state) {
+                        winston.info(util.format('%s(%d%%)', file, state.percent));
+                    })
+                    .on('error', function (err) {
+                        console.log(err);
+                    }).pipe(fileStream);
+                return deferred.promise;
+            };
+            var attachmentQueue = new Queue(attachmentsData, 50, getAttachments);
+            var attachments = attachmentQueue.start(20);
+            Q.all([ comments]).then(function() {
+                importProject(project).then(function () {
+                    winston.info('Job complete');
+                }, function(err) {
+                    winston.error('Error during making output file', util.inspect(err));
+                });
 
-            var comments = commentClient.uploadComments(issues);
-            comments.fail(requestErrorHandler);
-            var attachments = attachmentsClient.uploadAttachments(issues);
-            attachments.fail(requestErrorHandler);
-            Q.all([attachments, comments]).then(function () {
-                return importProject(project);
-            }).then(function () {
-                winston.info('Export job done.')
-                var attachmentUploader = new require('./clients/issue-attachment-uploader')();
-                attachmentUploader.uploadAttachments(path.join(__dirname, exportFolder, project.name, 'attachments'));
+            }, function(err) {
+                winston.error('Error : ', util.inspect(err));
             });
         });
     }

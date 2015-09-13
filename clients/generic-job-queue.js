@@ -1,47 +1,39 @@
+var _ = require('lodash');
+var Q = require('q');
 var JobQueue = function (inputData, maxQueueSize, jobHandler, handlerContext) {
-    var inputDataMapFn = function(data, index) {
+    var inputDataMapFn = function (data, index) {
         return {
             dataItem: data,
-            hash: index
+            index: index
         }
     };
 
     this._handler = jobHandler;
     this._handlerContext = handlerContext || null;
-    this._data = inputDataMapFn(inputData);
+    this._data = _.map(inputData, inputDataMapFn);
     this._jobStateStorage = Object.create(null);
-    this._deferred = Q.defer();
-    
-    this.maxQueueSize = maxQueueSize || 100;
-    //this.jira = jira;
+
+    this.maxQueueSize = maxQueueSize;
     this.errors = [];
-    //this.project = project;
+    this.results = [];
 
     this.total = inputData.length;
-    
+
     this.progress = 0;
-    this.promise = this._deferred.promise;
 };
 
 JobQueue.prototype.cleanQueue = function () {
     var that = this;
-    _.each(this._jobStateStorage, function (jobPromise, hash) {
+    _.each(this._jobStateStorage, function (jobPromise, index) {
         if (jobPromise.isFulfilled()) {
-            delete that._jobStateStorage[hash];
+            delete that._jobStateStorage[index];
         }
     });
 };
 JobQueue.prototype.digestOnceFunc = function () {
-    var that = this;
-    try {
-        this.cleanQueue();
-        while (this.hasFree() && this._data.length) {
-            this.enqueueJob();
-        }
-    }
-    catch (e) {
-        winston.error(util.inspect(e));
-        that._deferred.reject(e);
+    this.cleanQueue();
+    while (this.hasFree() && this._data.length) {
+        this.enqueueJob();
     }
 };
 
@@ -49,51 +41,26 @@ JobQueue.prototype.hasFree = function () {
     return _.keys(this._jobStateStorage).length < this.maxQueueSize;
 };
 
-JobQueue.prototype.getFileName = function (issueKey) {
-    return path.join(__dirname, '..', exportFolder, this.project, 'comments', issueKey + '.comments.json');
-};
-
-JobQueue.prototype.enqueueJob = function (input) {
+JobQueue.prototype.enqueueJob = function () {
     var that = this;
-    var issue = this._data.pop();
+    var input = this._data.shift();
 
-    var makeJob = function (dataItem) {
-        var jobDeferred = Q.defer();
-        var job = that._handler.call(that._handlerContext, dataItem);
-        var jobSuccessHandler = function() {
+    var makeJob = function (dataItem, index) {
+        var job = that._handler.call(that._handlerContext, dataItem, index, that.total);
 
+        var jobSuccessHandler = function (result) {
+            ++that.progress;
+            that.results.push(result);
+            return result;
         };
-        //var comments = wrapPromise(jira.issue, 'getComments', {
-        //    issueKey: issueKey
-        //});
-        //comments.then(function (response) {
-        //    var comments = response.comments;
-        //    var file = that.getFileName(issueKey);
-        //    if (comments.length) {
-        //        fs.writeFile(file, JSON.stringify(comments, null, 4), {flag: 'w+'}, function (err) {
-        //            if (err) {
-        //                that.errors.push(err);
-        //                deferred.reject(err);
-        //                winston.info(util.format('error during file writing %s (%d/%d)', file, ++that.progress, that.total));
-        //                return;
-        //            }
-        //            deferred.resolve(file);
-        //            winston.info(util.format('%s has been downloaded(%d/%d)', file, ++that.progress, that.total));
-        //        });
-        //
-        //    } else {
-        //        deferred.resolve(file);
-        //        winston.info(util.format('%s has been skipped(%d/%d)', file, ++that.progress, that.total));
-        //    }
-        //});
-        //comments.fail(function (err) {
-        //    that.errors.push(err);
-        //    deferred.reject(err);
-        //});
-        return jobDeferred.promise;
+        var jobFailHandler = function (err) {
+            that.errors.push(err);
+            throw err;
+        };
+        return job.then(jobSuccessHandler, jobFailHandler);
     };
 
-    this._jobStateStorage[input.hash] = makeJob(input.dataItem);
+    this._jobStateStorage[input.index] = makeJob(input.dataItem, input.index);
 };
 
 JobQueue.prototype.isCompleted = function () {
@@ -102,12 +69,21 @@ JobQueue.prototype.isCompleted = function () {
 
 JobQueue.prototype.start = function (interval) {
     var that = this;
+    var deferred = Q.defer();
     var intervalId = setInterval(function () {
         if (!that.isCompleted()) {
-            that.digestOnceFunc();
+            if (that.errors.length) {
+                deferred.reject(that.errors);
+                clearInterval(intervalId);
+            } else {
+                that.digestOnceFunc();
+            }
         } else {
-            that._deferred.resolve(that.errors);
+            deferred.resolve(that.results);
             clearInterval(intervalId);
         }
     }, interval);
+    return deferred.promise;
 };
+
+module.exports = JobQueue;
