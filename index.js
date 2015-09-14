@@ -107,7 +107,7 @@ prompt.get(prompts, function (err, options) {
         var projIssues = issueClient.getIssues(project, issueLoadingProgressCallback);
         projIssues.fail(requestErrorHandler);
         projIssues.then(function (projIssues) {
-            projIssues = projIssues.slice(0, 400);
+            //projIssues = projIssues.slice(0, 400);
             var issuesDir = path.join(projectDir, 'issues');
             if(!fs.existsSync(issuesDir)) {
                 fs.mkdirSync(issuesDir);
