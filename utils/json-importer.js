@@ -4,6 +4,8 @@ var wrapPromise = require('./promise-wrapper');
 var _ = require('lodash');
 var winston = require('winston');
 var fs = require('fs');
+var FileQueue = require('filequeue');
+var fq = new FileQueue(100);
 
 var importFn = function (project) {
     var exportFolder = require('./../jmt.json').output;
@@ -18,11 +20,7 @@ var importFn = function (project) {
                 var json = _.map(data, function (file) {
                     return JSON.parse(file.toString('utf-8'));
                 });
-                var issues = [];
-                _.each(json, function (part) {
-                    issues = Array.prototype.concat.call(issues, part);
-                });
-                return issues;
+                return [].concat.apply([], json);
             });
         });
     };
@@ -30,15 +28,14 @@ var importFn = function (project) {
     var readComments = function () {
         var files = wrapPromise(fs, 'readdir', path.join(__dirname, '..', exportFolder, project.name, 'comments'));
         return files.then(function (files) {
-            var commentsData = _.map(files.slice(0, 1000), function (file) {
-                return wrapPromise(fs, 'readFile', path.join(__dirname, '..', exportFolder, project.name, 'comments', file)).then(function (fileContent) {
+            var commentsData = _.map(files, function (file) {
+                return wrapPromise(fq, 'readFile', path.join(__dirname, '..', exportFolder, project.name, 'comments', file)).then(function (fileContent) {
                     return {
                         issueKey: file.split('.')[0],
                         comments: JSON.parse(fileContent.toString('utf-8'))
                     }
                 })
             });
-
             return Q.all(commentsData).then(function (data) {
                 return data;
             }, function (err) {
