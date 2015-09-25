@@ -99,7 +99,12 @@ var importFn = function (project) {
         if (fs.existsSync(outFile)) {
             fs.unlinkSync(outFile)
         }
-        fs.writeFileSync(outFile, JSON.stringify(data, null, 4));
+        var skipNulls = function(key,value){
+            if(value==null)
+                return undefined;
+            return value;
+        };
+        fs.writeFileSync(outFile, JSON.stringify(data, skipNulls, 4));
     });
 };
 
