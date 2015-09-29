@@ -76,6 +76,7 @@ var importFn = function (project) {
                     summary: issue.fields.summary,
                     priority: issue.fields.priority && issue.fields.priority.name,
                     externalId: issue.id,
+                    labels: issue.fields.labels,
                     comments: _.map(issueComments, issueCommentsMapFn)
                 }
             };
@@ -83,12 +84,18 @@ var importFn = function (project) {
             var issues = data[1];
             var comments = data[0];
 
-            return {
-                name: project.name,
-                key: project.key,
-                description: project.description,
-                versions: _.map(project.versions, projectVersionsMapFn),
-                issues: _.map(issues, projectIssuesMapFn)
+            return{
+                users:[],
+                links:[],
+                projects:[
+                    {
+                        name: project.name,
+                        key: project.key,
+                        description: project.description,
+                        versions: _.map(project.versions, projectVersionsMapFn),
+                        issues: _.map(issues, projectIssuesMapFn)
+                    }
+                ]
             };
         });
     };
