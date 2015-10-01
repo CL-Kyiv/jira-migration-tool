@@ -44,8 +44,27 @@ var importFn = function (project) {
         });
     };
 
+    var readSchema = function () {
+        var schemaFile = "schema.json";
+        var readSchemaFile = wrapPromise(fq, 'readFile', path.join(__dirname, '..', exportFolder, project.name, schemaFile))
+            .then(function (fileContent) {
+            return JSON.parse(fileContent.toString('utf-8'));
+        });
+        var namesFile = "names.json";
+        var readNamesFile = wrapPromise(fq, 'readFile', path.join(__dirname, '..', exportFolder, project.name, namesFile))
+            .then(function (fileContent) {
+                return JSON.parse(fileContent.toString('utf-8'));
+            });
+        return Q.all([readSchemaFile, readNamesFile]).then(function(result){
+            var schema = result[0];
+            schema.names = result[1];
+            return schema;
+        })
+    };
+
     var issues = readIssues();
     var comments = readComments();
+    var schema = readSchema();
 
     var buildProject = function (project) {
 
@@ -56,7 +75,10 @@ var importFn = function (project) {
             };
         };
 
-        return Q.all([comments, issues]).then(function (data) {
+        return Q.all([comments, issues,schema]).then(function (data) {
+            var comments = data[0];
+            var issues = data[1];
+            var schema = data[2];
             var projectIssuesMapFn = function (issue) {
                 var issueCommentsMapFn = function (comment) {
                     return {
@@ -68,21 +90,44 @@ var importFn = function (project) {
 
                 var issueComments = _.findWhere(comments, {issueKey: issue.key});
                 issueComments = issueComments && issueComments.comments || [];
-
+                var fields = issue.fields;
+                var customFieldValues = [];
+                if(fields.customfield_10160 && schema.customfield_10160 && schema.names.customfield_10160){
+                    customFieldValues.push({
+                        fieldName: schema.names.customfield_10160,
+                        fieldType: schema.customfield_10160.custom,
+                        value: fields.customfield_10160
+                    });
+                }
                 return {
                     key: issue.key,
-                    status: issue.fields.status && issue.fields.status.name,
-                    reporter: issue.fields.reporter && issue.fields.reporter.name,
-                    summary: issue.fields.summary,
-                    priority: issue.fields.priority && issue.fields.priority.name,
+                    status: fields.status && fields.status.name,
+                    reporter: fields.reporter && fields.reporter.name,
+                    summary: fields.summary,
+                    priority: fields.priority && fields.priority.name,
                     externalId: issue.id,
-                    labels: issue.fields.labels,
-                    comments: _.map(issueComments, issueCommentsMapFn)
+                    labels: fields.labels,
+                    description: fields.description && fields.description,
+                    fixedVersions: fields.fixVersions && _.map(fields.fixVersions,function(version){
+                        return version.name;
+                    }),
+                    components: fields.components && _.map(fields.components,function(component){
+                        return component.name;
+                    }),
+                    assignee:fields.assignee && fields.assignee.name,
+                    affectedVersions: fields.versions && _.map(fields.versions,function(version){
+                        return version.name;
+                    }),
+                    issueType:fields.issuetype && fields.issuetype.name,
+                    resolution:fields.resolution && fields.resolution.name,
+                    created:fields.created && fields.created,
+                    updated:fields.updated && fields.updated,
+                    estimate:fields.customfield_10153 && fields.customfield_10153,
+                    comments: _.map(issueComments, issueCommentsMapFn),
+                    customFieldValues:customFieldValues
                 }
             };
 
-            var issues = data[1];
-            var comments = data[0];
 
             return{
                 users:[],

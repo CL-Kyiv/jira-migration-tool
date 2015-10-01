@@ -106,8 +106,8 @@ prompt.get(prompts, function (err, options) {
         };
         var projIssues = issueClient.getIssues(project, issueLoadingProgressCallback);
         projIssues.fail(requestErrorHandler);
-        projIssues.then(function (projIssues) {
-            //projIssues = projIssues.slice(0, 400);
+        projIssues.then(function (issuesResponse) {
+            var projIssues = issuesResponse.issues;
             var issuesDir = path.join(projectDir, 'issues');
             if(!fs.existsSync(issuesDir)) {
                 fs.mkdirSync(issuesDir);
@@ -119,6 +119,12 @@ prompt.get(prompts, function (err, options) {
             winston.info(util.format('%s project json exporting to %s folder starting...', project.name, exportFolder));
             var index = 0;
             var total = projIssues.length;
+            var names = issuesResponse.names;
+            var namesFile = util.format('%s\\names.json', project.name);
+            jsonExporter.exportTo(namesFile, names);
+            var schema = issuesResponse.schema;
+            var schemaFile = util.format('%s\\schema.json', project.name);
+            jsonExporter.exportTo(schemaFile, schema);
             while (projIssues.length) {
                 (function (index) {
                     var part = projIssues.splice(0, outputPageSize);

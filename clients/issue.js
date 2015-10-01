@@ -9,7 +9,7 @@ var IssueClient = module.exports = function (jira) {
                 jql: 'project = "' + project.name + '" order by key ASC',
                 maxResults: pageSize,
                 startAt: pageSize * page,
-                expand: ['editmeta,renderedFields,transitions,changelog,operations']
+                expand: ['editmeta,renderedFields,transitions,changelog,operations,names,schema']
             });
         };
         var deferred = Q.defer();
@@ -28,7 +28,11 @@ var IssueClient = module.exports = function (jira) {
                 })(i)
             }
             return Q.all(requestQueue).then(function () {
-                deferred.resolve(resultedIssues);
+                deferred.resolve({
+                    issues:resultedIssues,
+                    names:response.names,
+                    schema:response.schema
+                });
             })
         });
         return deferred.promise;
