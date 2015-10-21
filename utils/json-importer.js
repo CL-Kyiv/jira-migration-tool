@@ -79,6 +79,9 @@ var importFn = function (project) {
             var comments = data[0];
             var issues = data[1];
             var schema = data[2];
+            var customFieldNames = ['WB Comment','Sprint','Found Build #','Fixed Build #'];
+            var names = _.invert(schema.names);
+            var links = [];
             var projectIssuesMapFn = function (issue) {
                 var issueCommentsMapFn = function (comment) {
                     return {
@@ -92,12 +95,33 @@ var importFn = function (project) {
                 issueComments = issueComments && issueComments.comments || [];
                 var fields = issue.fields;
                 var customFieldValues = [];
-                if(fields.customfield_10160 && schema.customfield_10160 && schema.names.customfield_10160){
-                    customFieldValues.push({
-                        fieldName: schema.names.customfield_10160,
-                        fieldType: schema.customfield_10160.custom,
-                        value: fields.customfield_10160
-                    });
+                _.each(customFieldNames,function(customFieldName){
+                    var customFieldId = names[customFieldName];
+                    if(customFieldId && fields[customFieldId] && schema[customFieldId]){
+                        customFieldValues.push({
+                            fieldName: customFieldName,
+                            fieldType: schema[customFieldId].custom,
+                            value: fields[customFieldId]
+                        });
+                    }
+                });
+                if(fields.subtasks){
+                    links = links.concat(_.map(fields.subtasks,function(subtask){
+                        return {
+                            "name": "sub-task-link",
+                            "sourceId": issue.id,
+                            "destinationId": subtask.id
+                        };
+                    }));
+                }
+                if(fields.issuelinks){
+                    links = links.concat(_.map(fields.issuelinks,function(issueLink){
+                        return {
+                            "name": issueLink.type.name,
+                            "sourceId": issue.id,
+                            "destinationId": issueLink.inwardIssue && issueLink.inwardIssue.id || issueLink.outwardIssue && issueLink.outwardIssue.id
+                        }
+                    }));
                 }
                 return {
                     key: issue.key,
@@ -128,17 +152,17 @@ var importFn = function (project) {
                 }
             };
 
-
+            var convertedIssues = _.map(issues, projectIssuesMapFn);
             return{
                 users:[],
-                links:[],
+                links: links,
                 projects:[
                     {
                         name: project.name,
                         key: project.key,
                         description: project.description,
                         versions: _.map(project.versions, projectVersionsMapFn),
-                        issues: _.map(issues, projectIssuesMapFn)
+                        issues: convertedIssues
                     }
                 ]
             };
@@ -152,7 +176,7 @@ var importFn = function (project) {
             fs.unlinkSync(outFile)
         }
         var skipNulls = function(key,value){
-            if(value==null)
+            if(value==null || (_.isArray(value) && value.length==0))
                 return undefined;
             return value;
         };
