@@ -62,9 +62,29 @@ var importFn = function (project) {
         })
     };
 
+    var readUsers = function () {
+        var usersFile = "users.json";
+        var readUsersFile = wrapPromise(fq, 'readFile', path.join(__dirname, '..', exportFolder, project.name, usersFile))
+            .then(function (fileContent) {
+                return JSON.parse(fileContent.toString('utf-8'));
+            });
+        return readUsersFile;
+    };
+
+    var readComponents = function () {
+        var componentsFile = "components.json";
+        var readComponentsFile = wrapPromise(fq, 'readFile', path.join(__dirname, '..', exportFolder, project.name, componentsFile))
+            .then(function (fileContent) {
+                return JSON.parse(fileContent.toString('utf-8'));
+            });
+        return readComponentsFile;
+    };
+
     var issues = readIssues();
     var comments = readComments();
     var schema = readSchema();
+    var users = readUsers();
+    var components = readComponents();
 
     var buildProject = function (project) {
 
@@ -75,11 +95,8 @@ var importFn = function (project) {
             };
         };
 
-        return Q.all([comments, issues,schema]).then(function (data) {
-            var comments = data[0];
-            var issues = data[1];
-            var schema = data[2];
-            var customFieldNames = ['WB Comment','Sprint','Found Build #','Fixed Build #'];
+        return Q.all([comments, issues,schema, users,components])
+            .spread(function (comments,issues,schema,users,components) {
             var names = _.invert(schema.names);
             var links = [];
             var projectIssuesMapFn = function (issue) {
@@ -95,6 +112,7 @@ var importFn = function (project) {
                 issueComments = issueComments && issueComments.comments || [];
                 var fields = issue.fields;
                 var customFieldValues = [];
+                var customFieldNames = ['WB Comment','Found Build #','Fixed Build #'];
                 _.each(customFieldNames,function(customFieldName){
                     var customFieldId = names[customFieldName];
                     if(customFieldId && fields[customFieldId] && schema[customFieldId]){
@@ -146,15 +164,22 @@ var importFn = function (project) {
                     resolution:fields.resolution && fields.resolution.name,
                     created:fields.created && fields.created,
                     updated:fields.updated && fields.updated,
-                    estimate:fields.customfield_10153 && fields.customfield_10153,
+                    //estimate:fields.customfield_10153 && fields.customfield_10153,
                     comments: _.map(issueComments, issueCommentsMapFn),
                     customFieldValues:customFieldValues
                 }
             };
-
-            var convertedIssues = _.map(issues, projectIssuesMapFn);
+            var componentsMap = function(component){
+                return component.name;
+            };
             return{
-                users:[],
+                users: _.map(users,function(user){
+                    return{
+                        "name":user.name,
+                        "fullname":user.displayName,
+                        "active":user.active
+                    }
+                }),
                 links: links,
                 projects:[
                     {
@@ -162,7 +187,8 @@ var importFn = function (project) {
                         key: project.key,
                         description: project.description,
                         versions: _.map(project.versions, projectVersionsMapFn),
-                        issues: convertedIssues
+                        components: _.map(components, componentsMap),
+                        issues: _.map(issues, projectIssuesMapFn)
                     }
                 ]
             };

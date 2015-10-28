@@ -92,7 +92,14 @@ prompt.get(prompts, function (err, options) {
     projects.fail(requestErrorHandler);
     projects.then(function (projects) {
         winston.info('Loaded projects:', _.pluck(projects, 'name').join('\n\t'));
-        _.each(projects, projectExportFunc);
+        _.each(projects, function(project){
+            projectExportFunc(project);
+            importProject(project).then(function () {
+                winston.info('Job complete');
+            }, function(err) {
+                winston.error('Error during making output file', util.inspect(err));
+            });
+        });
     });
 
     var projectExportFunc = function (project) {
@@ -101,6 +108,18 @@ prompt.get(prompts, function (err, options) {
             fs.mkdirSync(projectDir)
         }
         winston.info(util.format('%s project download starting...', project.name));
+        projectClient.getProjectUsers(project.key).then(function(users){
+            var usersFile = util.format('%s\\users.json', project.name);
+            jsonExporter.exportTo(usersFile, users);
+            winston.info('Found ' + users.length + ' users')
+        });
+        projectClient.getComponents(project.key).then(
+            function(components){
+                var componentsFile = util.format('%s\\components.json', project.name);
+                jsonExporter.exportTo(componentsFile, components);
+                winston.info('Found ' + components.length + ' components')
+            }
+        );
         var issueLoadingProgressCallback = function (progress, complete, total) {
             winston.info(util.format('Complete: (%d/%d) %d%%', complete, total, Math.ceil(progress * 100)));
         };
@@ -221,5 +240,8 @@ prompt.get(prompts, function (err, options) {
                 winston.error('Error : ', util.inspect(err));
             });
         });
-    }
+    };
+
 });
+
+

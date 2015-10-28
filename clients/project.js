@@ -15,5 +15,29 @@ var ProjectClient = module.exports = function (jira) {
             });
             return Q.all(projects)
         })
+    };
+
+    this.getComponents = function(key){
+        return wrapPromise(jira.project, 'getComponents', {
+            projectIdOrKey: key
+        });
+    };
+    var getUser = function(userName){
+        return wrapPromise(jira.user, 'getUser', {
+            username: userName,
+            expand:"groups"
+        });
+    };
+    this.getProjectUsers = function(key){
+        var users = wrapPromise(jira.user, 'searchAssignable', {
+            project: key
+        });
+        return users;
+        //return users.then(function(users){
+        //    var userPromises = _.map(users,function(user){
+        //       return getUser(user.name);
+        //    });
+        //   return Q.all(userPromises);
+        //});
     }
 };
