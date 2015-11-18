@@ -3,6 +3,9 @@ log.txt
 export
 import
 config
+typings
+uploader.js
+*.js.map
 .idea
 # Logs
 logs
