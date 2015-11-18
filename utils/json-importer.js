@@ -173,13 +173,13 @@ var importFn = function (project) {
                 return component.name;
             };
             return{
-                users: _.map(users,function(user){
-                    return{
-                        "name":user.name,
-                        "fullname":user.displayName,
-                        "active":user.active
-                    }
-                }),
+                //users: _.map(users,function(user){
+                //    return{
+                //        "name":user.name,
+                //        "fullname":user.displayName,
+                //        "active":user.active
+                //    }
+                //}),
                 links: links,
                 projects:[
                     {
