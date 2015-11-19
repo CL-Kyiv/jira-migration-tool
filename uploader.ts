@@ -1,17 +1,9 @@
-/*
-1. Go through all attachments
-2. Find out issue key
-2. Unpack each attachment
-3. Attach all items to the issue
- */
-/// <reference path="typings/node/node.d.ts" />
-/// <reference path="typings/lodash/lodash.d.ts" />
-var fs = require('fs');
-var _ = require('lodash');
-var zlib = require('zlib');
-var path = require('path');
+/// <reference path="typings/tsd.d.ts" />
 var unzip = require('unzip');
 var config = require('./jmt.json');
+import * as fs from 'fs';
+import * as path from 'path';
+import * as _ from 'lodash';
 
 var uploadAttachments = function(filesPath:string,callback:(file:string)=>any){
     fs.readdir(filesPath,function(err, list){
@@ -20,23 +12,44 @@ var uploadAttachments = function(filesPath:string,callback:(file:string)=>any){
             return;
         }
         _.each(_.filter<string>([list[1]],(file:string)=>/[a-zA-Z]+-[0-9]+/.test(file)),function(file){
-            callback(path.join(filesPath, file))
+            callback(file)
         });
     });
 };
+var makeDir = function(dirPath:string){
+    if(!fs.existsSync(dirPath)){
+        var dirInfo = path.parse(dirPath);
 
-var attachmentsPath = 'export/'+config.projects+'/attachments';
+        if(!fs.existsSync(dirInfo.dir))
+            makeDir(dirInfo.dir);
+        fs.mkdirSync(dirPath);
+    }
+};
+var exportPath = path.join('export', config.projects);
+var attachmentsPath = path.join(exportPath,'attachments');
+var extractPath = path.join(exportPath, 'extract');
+
 uploadAttachments(attachmentsPath,function(file){
     //unpack
     console.log(file);
-    fs.createReadStream(file)
+    var fileName = path.parse(file).name;
+    var extractTo = path.join(extractPath, fileName);
+    var fullPath = path.join(attachmentsPath, file);
+    makeDir(extractTo);
+    var extractedFiles:string[]=[];
+    fs.createReadStream(fullPath)
         .pipe(unzip.Parse())
-        .on('entry', function (entry) {
+        .on('entry', function (entry:any) {
             var fileName = entry.path;
             var type = entry.type; // 'Directory' or 'File'
             var size = entry.size;
             console.log(fileName);
-            //entry.pipe(fs.createWriteStream('output/path'));
+            var extractedFile = path.join(extractTo, fileName);
+            entry.pipe(fs.createWriteStream(extractedFile));
+            extractedFiles.push(extractedFile);
             entry.autodrain();
         });
+        _.each(extractedFiles,function(attachmentFile){
+            extractedFiles.push(attachmentFile);
+    })
 });
