@@ -4,6 +4,7 @@ var config = require('./jmt.json');
 import * as fs from 'fs';
 import * as path from 'path';
 import * as _ from 'lodash';
+import * as q from 'q';
 
 var uploadAttachments = function(filesPath:string,callback:(file:string)=>any){
     fs.readdir(filesPath,function(err, list){
@@ -28,7 +29,6 @@ var makeDir = function(dirPath:string){
 var exportPath = path.join('export', config.projects);
 var attachmentsPath = path.join(exportPath,'attachments');
 var extractPath = path.join(exportPath, 'extract');
-
 uploadAttachments(attachmentsPath,function(file){
     //unpack
     console.log(file);

@@ -1,11 +1,10 @@
 {
   "compilerOptions": {
-    "module":"commonjs",
     "noImplicitAny": true,
-    "removeComments": true,
     "preserveConstEnums": true,
     "sourceMap": true,
-    "target":"es5"
+    "target":"es5",
+    "module":"commonjs"
   },
   "files": [
     "uploader.ts"
